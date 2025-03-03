@@ -17,9 +17,9 @@ namespace NO_LOCK.STAT
     {
         public const string DiagnosticId = "NO_LOCKSTAT";
 
-        private static readonly LocalizableString Title = new LocalizableResourceString(nameof(Resources.AnalyzerTitle1), Resources.ResourceManager, typeof(Resources));
-        private static readonly LocalizableString MessageFormat = new LocalizableResourceString(nameof(Resources.AnalyzerMessageFormat1), Resources.ResourceManager, typeof(Resources));
-        private static readonly LocalizableString Description = new LocalizableResourceString(nameof(Resources.AnalyzerDescription1), Resources.ResourceManager, typeof(Resources));
+        private static readonly LocalizableString Title = new LocalizableResourceString(nameof(Resources.AnalyzerTitle), Resources.ResourceManager, typeof(Resources));
+        private static readonly LocalizableString MessageFormat = new LocalizableResourceString(nameof(Resources.AnalyzerMessageFormat), Resources.ResourceManager, typeof(Resources));
+        private static readonly LocalizableString Description = new LocalizableResourceString(nameof(Resources.AnalyzerDescription), Resources.ResourceManager, typeof(Resources));
         private const string Category = "Usage";
 
         private static readonly DiagnosticDescriptor Rule = new DiagnosticDescriptor(DiagnosticId, Title, MessageFormat, Category, DiagnosticSeverity.Warning, isEnabledByDefault: true, description: Description);
@@ -37,7 +37,7 @@ namespace NO_LOCK.STAT
         {
             var identifier = (IdentifierNameSyntax)context.Node;
             var symbol = context.SemanticModel.GetSymbolInfo(identifier).Symbol;
-            if (symbol == null || symbol.Kind != SymbolKind.Local && symbol.Kind != SymbolKind.Field && symbol.Kind != SymbolKind.Property)
+            if (symbol == null || (symbol.Kind != SymbolKind.Field && symbol.Kind != SymbolKind.Property))
             {
                 return; 
             }
@@ -68,25 +68,17 @@ namespace NO_LOCK.STAT
                     }
                 }
                 
-                if(num_of_locked != 0)
-                {
-                    string message = string.Format(Resources.VariableMessage, variableName, num_of_locked, num_of_unlocked);
+            
+                string message = string.Format(Resources.VariableMessage, variableName, num_of_locked, num_of_unlocked);
                     
-                    var no_lock_diagnostic = Diagnostic.Create(
-                        descriptor: Rule,
-                        location: identifier.GetLocation(),
-                        messageArgs: message);
+                var no_lock_diagnostic = Diagnostic.Create(
+                    descriptor: Rule,
+                    location: identifier.GetLocation(),
+                    messageArgs: message);
 
-                    context.ReportDiagnostic(no_lock_diagnostic);
-                }
+                context.ReportDiagnostic(no_lock_diagnostic);
+                
             }
-
-            var diagnostic = Diagnostic.Create(
-                descriptor: Rule,
-                location: identifier.GetLocation(),
-                messageArgs: isInsideLock ? "ℹ️〔lock〕" : "ℹ️〔not lock〕");
-
-            context.ReportDiagnostic(diagnostic);
         }
 
         private static bool IsLocked(SyntaxNode node)

@@ -61,7 +61,7 @@ namespace NO_LOCK.STAT {
         }
         
         /// <summary>
-        ///   Ищет локализованную строку, похожую на Type names should be all uppercase..
+        ///   Ищет локализованную строку, похожую на Shows possibility of missing lock..
         /// </summary>
         internal static string AnalyzerDescription {
             get {
@@ -70,16 +70,7 @@ namespace NO_LOCK.STAT {
         }
         
         /// <summary>
-        ///   Ищет локализованную строку, похожую на Shows whether a variable is inside a lock statement..
-        /// </summary>
-        internal static string AnalyzerDescription1 {
-            get {
-                return ResourceManager.GetString("AnalyzerDescription1", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Ищет локализованную строку, похожую на Type name &apos;{0}&apos; contains lowercase letters.
+        ///   Ищет локализованную строку, похожую на {0}.
         /// </summary>
         internal static string AnalyzerMessageFormat {
             get {
@@ -88,29 +79,11 @@ namespace NO_LOCK.STAT {
         }
         
         /// <summary>
-        ///   Ищет локализованную строку, похожую на {0}.
-        /// </summary>
-        internal static string AnalyzerMessageFormat1 {
-            get {
-                return ResourceManager.GetString("AnalyzerMessageFormat1", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Ищет локализованную строку, похожую на Type name contains lowercase letters.
+        ///   Ищет локализованную строку, похожую на No lock stat.
         /// </summary>
         internal static string AnalyzerTitle {
             get {
                 return ResourceManager.GetString("AnalyzerTitle", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Ищет локализованную строку, похожую на Lock context.
-        /// </summary>
-        internal static string AnalyzerTitle1 {
-            get {
-                return ResourceManager.GetString("AnalyzerTitle1", resourceCulture);
             }
         }
         

@@ -118,27 +118,15 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="AnalyzerDescription" xml:space="preserve">
-    <value>Type names should be all uppercase.</value>
+    <value>Shows possibility of missing lock.</value>
     <comment>An optional longer localizable description of the diagnostic.</comment>
   </data>
   <data name="AnalyzerMessageFormat" xml:space="preserve">
-    <value>Type name '{0}' contains lowercase letters</value>
-    <comment>The format-able message the diagnostic displays.</comment>
-  </data>
-  <data name="AnalyzerTitle" xml:space="preserve">
-    <value>Type name contains lowercase letters</value>
-    <comment>The title of the diagnostic.</comment>
-  </data>
-  <data name="AnalyzerDescription1" xml:space="preserve">
-    <value>Shows whether a variable is inside a lock statement.</value>
-    <comment>An optional longer localizable description of the diagnostic.</comment>
-  </data>
-  <data name="AnalyzerMessageFormat1" xml:space="preserve">
     <value>{0}</value>
     <comment>The format-able message the diagnostic displays.</comment>
   </data>
-  <data name="AnalyzerTitle1" xml:space="preserve">
-    <value>Lock context</value>
+  <data name="AnalyzerTitle" xml:space="preserve">
+    <value>No lock stat</value>
     <comment>The title of the diagnostic.</comment>
   </data>
   <data name="VariableMessage" xml:space="preserve">

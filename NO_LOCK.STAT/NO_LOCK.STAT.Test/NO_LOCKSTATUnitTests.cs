@@ -166,6 +166,44 @@ namespace NO_LOCK.STAT.Test
 
             await VerifyCS.VerifyAnalyzerAsync(test, expected1, expected2);
         }
+
+        [TestMethod]
+        public async Task DiffLockObjects()
+        {
+            var test = @"
+        class Program
+        {
+            object lockObject1 = new object();
+            object lockObject2 = new object();
+            int _f;
+
+            void foo()
+            {
+                lock (lockObject1)
+                {
+                    _f = 4; 
+                }
+            }
+
+            void bar()
+            {
+                lock (lockObject2)
+                {
+                    _f = 5; 
+                }
+            }
+        }";
+
+            var expected1 = VerifyCS.Diagnostic("NO_LOCKSTAT")
+                .WithLocation(12, 21)
+                .WithArguments("⚠️〔NO_LOCK.STAT Possible using different objects to lock the variable _f. In this place the object is lockObject1, but this variable is also locked with the object lockObject2.〕");
+
+            var expected2 = VerifyCS.Diagnostic("NO_LOCKSTAT")
+                .WithLocation(20, 21)
+                .WithArguments("⚠️〔NO_LOCK.STAT Possible using different objects to lock the variable _f. In this place the object is lockObject2, but this variable is also locked with the object lockObject1.〕");
+
+            await VerifyCS.VerifyAnalyzerAsync(test, expected1, expected2);
+        }
     }
 
 }

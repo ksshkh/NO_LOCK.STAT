@@ -129,6 +129,10 @@
     <value>No lock stat</value>
     <comment>The title of the diagnostic.</comment>
   </data>
+  <data name="DiffLockObjects" xml:space="preserve">
+    <value>⚠️〔NO_LOCK.STAT Possible using different objects to lock the variable {0}. In this place the object is {1}, but this variable is also locked with the object {2}.〕</value>
+    <comment>The result of the diagnostic</comment>
+  </data>
   <data name="VariableMessage" xml:space="preserve">
     <value>⚠️〔NO_LOCK.STAT Possible missing lock on this before accessing to the {0} variable. It is used {1} times under lock and {2} time without lock.〕</value>
     <comment>The result of the diagnostic</comment>

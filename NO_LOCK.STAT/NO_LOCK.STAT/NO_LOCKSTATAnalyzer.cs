@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using System.Diagnostics.SymbolStore;
 using System.Linq;
 using System.Threading;
+using System.Xml.Linq;
 using System.Xml.Xsl;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -48,27 +49,37 @@ namespace NO_LOCK.STAT
                                   .OfType<IdentifierNameSyntax>()
                                   .Where(id => id.Identifier.ValueText == variableName);
 
-            bool isInsideLock = IsLocked(identifier);
+            string LockObject = GetLockObject(identifier);
 
-            if (!isInsideLock)
+            int num_of_locked = 0;
+            int num_of_unlocked = 0;
+
+            foreach (var cur_identifier in identifierNodes)
             {
-                int num_of_locked = 0;
-                int num_of_unlocked = 0;
-
-                foreach (var cur_identifier in identifierNodes)
+                string CurLockObject = GetLockObject(cur_identifier);
+                if (CurLockObject != null)
                 {
-                    bool isCurInsideLock = IsLocked(cur_identifier);
-                    if (isCurInsideLock)
+                    if (CurLockObject != LockObject && LockObject != null)
                     {
-                        num_of_locked++;
+                        string message1 = string.Format(Resources.DiffLockObjects, variableName, LockObject, CurLockObject);
+
+                        var diff_lock_objects = Diagnostic.Create(
+                            descriptor: Rule,
+                            location: identifier.GetLocation(),
+                            messageArgs: message1);
+
+                        context.ReportDiagnostic(diff_lock_objects);
                     }
-                    else
-                    {
-                        num_of_unlocked++;
-                    }
+                    num_of_locked++;
                 }
-                
-            
+                else
+                {
+                    num_of_unlocked++;
+                }
+            }
+
+            if (LockObject == null)
+            {                            
                 string message = string.Format(Resources.VariableMessage, variableName, num_of_locked, num_of_unlocked);
                     
                 var no_lock_diagnostic = Diagnostic.Create(
@@ -81,18 +92,19 @@ namespace NO_LOCK.STAT
             }
         }
 
-        private static bool IsLocked(SyntaxNode node)
+        private static string GetLockObject(SyntaxNode node)
         {
             var parent = node.Parent;
             while (parent != null)
             {
-                if (parent is LockStatementSyntax)
+                if (parent is LockStatementSyntax lockStatement)
                 {
-                    return true; 
+                    return lockStatement.Expression.ToString();
                 }
                 parent = parent.Parent;
             }
-            return false;
+            return null; 
         }
+
     }
 }

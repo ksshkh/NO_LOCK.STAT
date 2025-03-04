@@ -88,6 +88,15 @@ namespace NO_LOCK.STAT {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на ⚠️〔NO_LOCK.STAT Possible using different objects to lock the variable {0}. In this place the object is {1}, but this variable is also locked with the object {2}.〕.
+        /// </summary>
+        internal static string DiffLockObjects {
+            get {
+                return ResourceManager.GetString("DiffLockObjects", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на ⚠️〔NO_LOCK.STAT Possible missing lock on this before accessing to the {0} variable. It is used {1} times under lock and {2} time without lock.〕.
         /// </summary>
         internal static string VariableMessage {

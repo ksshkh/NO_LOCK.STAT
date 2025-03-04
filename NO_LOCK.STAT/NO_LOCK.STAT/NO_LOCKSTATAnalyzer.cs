@@ -44,10 +44,20 @@ namespace NO_LOCK.STAT
             }
 
             string variableName = symbol.Name;
+
             var root = context.Node.SyntaxTree.GetRoot();
             var identifierNodes = root.DescendantNodes()
-                                  .OfType<IdentifierNameSyntax>()
-                                  .Where(id => id.Identifier.ValueText == variableName);
+                              .OfType<IdentifierNameSyntax>()
+                              .Where(id =>
+                              {
+                                  var idSymbol = context.SemanticModel.GetSymbolInfo(id).Symbol;
+                                  if (idSymbol == null)
+                                  {
+                                      return false;
+                                  }
+
+                                  return idSymbol.Equals(symbol, SymbolEqualityComparer.Default) == true;
+                              });
 
             string LockObject = GetLockObject(identifier);
 

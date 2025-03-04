@@ -171,7 +171,7 @@ namespace NO_LOCK.STAT.Test
         public async Task DiffLockObjects()
         {
             var test = @"
-        class Program
+        class DiffLockObjects
         {
             object lockObject1 = new object();
             object lockObject2 = new object();
@@ -204,6 +204,40 @@ namespace NO_LOCK.STAT.Test
 
             await VerifyCS.VerifyAnalyzerAsync(test, expected1, expected2);
         }
-    }
 
+        [TestMethod]
+        public async Task VariablesInDiffClasses()
+        {
+            var test = @"
+        namespace VariablesInDiffClasses
+        {
+            class FirstClass
+            {
+                int _f;
+
+                void baz()
+                {
+                    lock (this) 
+                        _f = 6; 
+                }
+            }
+
+            class SecondClass
+            {
+                int _f;
+
+                void foo()
+                {
+                    _f = 4; 
+                }
+            }
+        }";
+
+            var expected = VerifyCS.Diagnostic("NO_LOCKSTAT")
+                .WithLocation(21, 21) 
+                .WithArguments("⚠️〔NO_LOCK.STAT Possible missing lock on this before accessing to the _f variable. It is used 0 times under lock and 1 time without lock.〕");
+
+            await VerifyCS.VerifyAnalyzerAsync(test, expected);
+        }
+    }
 }

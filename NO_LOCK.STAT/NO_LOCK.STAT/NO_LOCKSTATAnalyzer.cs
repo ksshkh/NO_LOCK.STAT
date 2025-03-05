@@ -11,6 +11,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
+
 namespace NO_LOCK.STAT
 {
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -30,7 +31,6 @@ namespace NO_LOCK.STAT
         public override void Initialize(AnalysisContext context)
         {
             context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-            context.EnableConcurrentExecution();
             context.RegisterSyntaxNodeAction(AnalyzeNode, SyntaxKind.IdentifierName);
         }
 
@@ -40,33 +40,23 @@ namespace NO_LOCK.STAT
             var symbol = context.SemanticModel.GetSymbolInfo(identifier).Symbol;
             if (symbol == null || (symbol.Kind != SymbolKind.Field && symbol.Kind != SymbolKind.Property))
             {
-                return; 
+                return;
             }
 
             string variableName = symbol.Name;
 
-            var root = context.Node.SyntaxTree.GetRoot();
-            var identifierNodes = root.DescendantNodes()
-                              .OfType<IdentifierNameSyntax>()
-                              .Where(id =>
-                              {
-                                  var idSymbol = context.SemanticModel.GetSymbolInfo(id).Symbol;
-                                  if (idSymbol == null)
-                                  {
-                                      return false;
-                                  }
+            var visitor = new LockVisitor(context.SemanticModel, symbol);
+            visitor.Visit(context.Node.SyntaxTree.GetRoot());
 
-                                  return idSymbol.Equals(symbol, SymbolEqualityComparer.Default) == true;
-                              });
+            var identifierNodes = visitor.GetIdentifiers();
 
-            string LockObject = GetLockObject(identifier);
+            string LockObject = LockVisitor.GetLockObject(identifier);
 
             int num_of_locked = 0;
             int num_of_unlocked = 0;
 
-            foreach (var cur_identifier in identifierNodes)
+            foreach (var (cur_identifier, CurLockObject) in identifierNodes)
             {
-                string CurLockObject = GetLockObject(cur_identifier);
                 if (CurLockObject != null)
                 {
                     if (CurLockObject != LockObject && LockObject != null)
@@ -89,32 +79,60 @@ namespace NO_LOCK.STAT
             }
 
             if (LockObject == null)
-            {                            
+            {
                 string message = string.Format(Resources.VariableMessage, variableName, num_of_locked, num_of_unlocked);
-                    
+
                 var no_lock_diagnostic = Diagnostic.Create(
                     descriptor: Rule,
                     location: identifier.GetLocation(),
                     messageArgs: message);
 
                 context.ReportDiagnostic(no_lock_diagnostic);
-                
             }
         }
 
-        private static string GetLockObject(SyntaxNode node)
-        {
-            var parent = node.Parent;
-            while (parent != null)
+        public class LockVisitor : CSharpSyntaxWalker
             {
-                if (parent is LockStatementSyntax lockStatement)
-                {
-                    return lockStatement.Expression.ToString();
-                }
-                parent = parent.Parent;
-            }
-            return null; 
-        }
+                private readonly SemanticModel _semanticModel;
+                private readonly ISymbol _targetSymbol;
+                private readonly List<(IdentifierNameSyntax Identifier, string LockObject)> _identifiers = new List<(IdentifierNameSyntax, string)>();
 
-    }
+                public LockVisitor(SemanticModel semanticModel, ISymbol targetSymbol)
+                {
+                    _semanticModel = semanticModel;
+                    _targetSymbol = targetSymbol;
+                }
+
+                public override void VisitIdentifierName(IdentifierNameSyntax node)
+                {
+                    var symbol = _semanticModel.GetSymbolInfo(node).Symbol;
+                    if (symbol != null && symbol.Equals(_targetSymbol, SymbolEqualityComparer.Default))
+                    {
+                        string lockObject = GetLockObject(node);
+                        _identifiers.Add((node, lockObject));
+                    }
+
+                    base.VisitIdentifierName(node);
+                }
+
+                public static string GetLockObject(SyntaxNode node)
+                {
+                    var parent = node.Parent;
+                    while (parent != null)
+                    {
+                        if (parent is LockStatementSyntax lockStatement)
+                        {
+                            return lockStatement.Expression.ToString();
+                        }
+                        parent = parent.Parent;
+                    }
+                    return null;
+                }
+
+                public IEnumerable<(IdentifierNameSyntax Identifier, string LockObject)> GetIdentifiers()
+                {
+                    return _identifiers;
+                }
+            }
+        }
 }

@@ -78,9 +78,9 @@ namespace NO_LOCK.STAT
                 int numOfUnlocked = 0;
                 string sampleObject = null;
 
-                for (int i = 0; i < variablesInfo.Count; i++)
+                foreach (var variableInfo in variablesInfo)
                 {
-                    if (variablesInfo[i].lockObject == null)
+                    if (variableInfo.lockObject == null)
                     {
                         numOfUnlocked++;
                     }
@@ -89,28 +89,28 @@ namespace NO_LOCK.STAT
                         numOfLocked++;
                         if (sampleObject == null)
                         {
-                            sampleObject = variablesInfo[i].lockObject;
+                            sampleObject = variableInfo.lockObject;
                         }
                     }
                 }
 
-                for (int i = 0; i < variablesInfo.Count; i++)
+                foreach (var variableInfo in variablesInfo)
                 {
-                    if (variablesInfo[i].lockObject == null)
+                    if (variableInfo.lockObject == null)
                     {
                         var noLockDiagnostic = Diagnostic.Create(
                             descriptor: Rule_MissingLock,
-                            location: variablesInfo[i].location,
+                            location: variableInfo.location,
                             symbol.Name, numOfLocked, numOfUnlocked);
 
                         symbolEndContext.ReportDiagnostic(noLockDiagnostic);
                     }
-                    else if (variablesInfo[i].lockObject != sampleObject)
+                    else if (variableInfo.lockObject != sampleObject)
                     {
                         var diffLockObjectsDiagnostic = Diagnostic.Create(
                             descriptor: Rule_DiffLockObjects,
-                            location: variablesInfo[i].location,
-                            symbol.Name, sampleObject, variablesInfo[i].lockObject);
+                            location: variableInfo.location,
+                            symbol.Name, sampleObject, variableInfo.lockObject);
 
                         symbolEndContext.ReportDiagnostic(diffLockObjectsDiagnostic);
                     }

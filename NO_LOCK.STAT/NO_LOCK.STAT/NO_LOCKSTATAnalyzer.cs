@@ -17,16 +17,24 @@ namespace NO_LOCK.STAT
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public class NO_LOCKSTATAnalyzer : DiagnosticAnalyzer
     {
-        public const string DiagnosticId = "NO_LOCKSTAT";
+        public const string DiagnosticIdMl = "NO_LOCKSTAT_ML";
+        public const string DiagnosticIdDo = "NO_LOCKSTAT_DO";
 
         private static readonly LocalizableString Title = new LocalizableResourceString(nameof(Resources.AnalyzerTitle), Resources.ResourceManager, typeof(Resources));
-        private static readonly LocalizableString MessageFormat = new LocalizableResourceString(nameof(Resources.AnalyzerMessageFormat), Resources.ResourceManager, typeof(Resources));
+
+        private static readonly LocalizableString MessageFormat_MissingLock = new LocalizableResourceString(nameof(Resources.MissingLock), Resources.ResourceManager, typeof(Resources));
+        private static readonly LocalizableString MessageFormat_DiffLockObjects = new LocalizableResourceString(nameof(Resources.DiffLockObjects), Resources.ResourceManager, typeof(Resources));
+
         private static readonly LocalizableString Description = new LocalizableResourceString(nameof(Resources.AnalyzerDescription), Resources.ResourceManager, typeof(Resources));
         private const string Category = "Usage";
 
-        private static readonly DiagnosticDescriptor Rule = new DiagnosticDescriptor(DiagnosticId, Title, MessageFormat, Category, DiagnosticSeverity.Warning, isEnabledByDefault: true, description: Description);
+        private static readonly DiagnosticDescriptor Rule_MissingLock = new DiagnosticDescriptor(DiagnosticIdMl, Title, MessageFormat_MissingLock, Category, DiagnosticSeverity.Warning, isEnabledByDefault: true, description: Description);
+        private static readonly DiagnosticDescriptor Rule_DiffLockObjects = new DiagnosticDescriptor(DiagnosticIdDo, Title, MessageFormat_DiffLockObjects, Category, DiagnosticSeverity.Warning, isEnabledByDefault: true, description: Description);
 
-        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get { return ImmutableArray.Create(Rule); } }
+        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
+        {
+            get { return ImmutableArray.Create(Rule_MissingLock, Rule_DiffLockObjects); }
+        }
 
         public override void Initialize(AnalysisContext context)
         {
@@ -61,12 +69,10 @@ namespace NO_LOCK.STAT
                 {
                     if (CurLockObject != LockObject && LockObject != null)
                     {
-                        string message1 = string.Format(Resources.DiffLockObjects, variableName, LockObject, CurLockObject);
-
                         var diff_lock_objects = Diagnostic.Create(
-                            descriptor: Rule,
+                            descriptor: Rule_DiffLockObjects,
                             location: identifier.GetLocation(),
-                            messageArgs: message1);
+                            variableName, LockObject, CurLockObject);
 
                         context.ReportDiagnostic(diff_lock_objects);
                     }
@@ -80,59 +86,57 @@ namespace NO_LOCK.STAT
 
             if (LockObject == null)
             {
-                string message = string.Format(Resources.VariableMessage, variableName, num_of_locked, num_of_unlocked);
-
                 var no_lock_diagnostic = Diagnostic.Create(
-                    descriptor: Rule,
+                    descriptor: Rule_MissingLock,
                     location: identifier.GetLocation(),
-                    messageArgs: message);
+                    variableName, num_of_locked, num_of_unlocked);
 
                 context.ReportDiagnostic(no_lock_diagnostic);
             }
         }
 
         public class LockVisitor : CSharpSyntaxWalker
+        {
+            private readonly SemanticModel _semanticModel;
+            private readonly ISymbol _targetSymbol;
+            private readonly List<(IdentifierNameSyntax Identifier, string LockObject)> _identifiers = new List<(IdentifierNameSyntax, string)>();
+
+            public LockVisitor(SemanticModel semanticModel, ISymbol targetSymbol)
             {
-                private readonly SemanticModel _semanticModel;
-                private readonly ISymbol _targetSymbol;
-                private readonly List<(IdentifierNameSyntax Identifier, string LockObject)> _identifiers = new List<(IdentifierNameSyntax, string)>();
+                _semanticModel = semanticModel;
+                _targetSymbol = targetSymbol;
+            }
 
-                public LockVisitor(SemanticModel semanticModel, ISymbol targetSymbol)
+            public override void VisitIdentifierName(IdentifierNameSyntax node)
+            {
+                var symbol = _semanticModel.GetSymbolInfo(node).Symbol;
+                if (symbol != null && symbol.Equals(_targetSymbol, SymbolEqualityComparer.Default))
                 {
-                    _semanticModel = semanticModel;
-                    _targetSymbol = targetSymbol;
+                    string lockObject = GetLockObject(node);
+                    _identifiers.Add((node, lockObject));
                 }
 
-                public override void VisitIdentifierName(IdentifierNameSyntax node)
+                base.VisitIdentifierName(node);
+            }
+
+            public static string GetLockObject(SyntaxNode node)
+            {
+                var parent = node.Parent;
+                while (parent != null)
                 {
-                    var symbol = _semanticModel.GetSymbolInfo(node).Symbol;
-                    if (symbol != null && symbol.Equals(_targetSymbol, SymbolEqualityComparer.Default))
+                    if (parent is LockStatementSyntax lockStatement)
                     {
-                        string lockObject = GetLockObject(node);
-                        _identifiers.Add((node, lockObject));
+                        return lockStatement.Expression.ToString();
                     }
-
-                    base.VisitIdentifierName(node);
+                    parent = parent.Parent;
                 }
+                return null;
+            }
 
-                public static string GetLockObject(SyntaxNode node)
-                {
-                    var parent = node.Parent;
-                    while (parent != null)
-                    {
-                        if (parent is LockStatementSyntax lockStatement)
-                        {
-                            return lockStatement.Expression.ToString();
-                        }
-                        parent = parent.Parent;
-                    }
-                    return null;
-                }
-
-                public IEnumerable<(IdentifierNameSyntax Identifier, string LockObject)> GetIdentifiers()
-                {
-                    return _identifiers;
-                }
+            public IEnumerable<(IdentifierNameSyntax Identifier, string LockObject)> GetIdentifiers()
+            {
+                return _identifiers;
             }
         }
+    }
 }

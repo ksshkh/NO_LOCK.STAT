@@ -117,14 +117,6 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="AnalyzerDescription" xml:space="preserve">
-    <value>Shows possibility of missing lock.</value>
-    <comment>An optional longer localizable description of the diagnostic.</comment>
-  </data>
-  <data name="AnalyzerMessageFormat" xml:space="preserve">
-    <value>{0}</value>
-    <comment>The format-able message the diagnostic displays.</comment>
-  </data>
   <data name="AnalyzerTitle" xml:space="preserve">
     <value>No lock stat</value>
     <comment>The title of the diagnostic.</comment>
@@ -133,8 +125,12 @@
     <value>⚠️〔NO_LOCK.STAT Possible using different objects to lock the variable {0}. In this place the object is {1}, but this variable is also locked with the object {2}.〕</value>
     <comment>The result of the diagnostic</comment>
   </data>
-  <data name="VariableMessage" xml:space="preserve">
+  <data name="MissingLock" xml:space="preserve">
     <value>⚠️〔NO_LOCK.STAT Possible missing lock on this before accessing to the {0} variable. It is used {1} times under lock and {2} time without lock.〕</value>
     <comment>The result of the diagnostic</comment>
+  </data>
+  <data name="AnalyzerDescription" xml:space="preserve">
+    <value>Shows possibility of missing lock.</value>
+    <comment>An optional longer localizable description of the diagnostic.</comment>
   </data>
 </root>

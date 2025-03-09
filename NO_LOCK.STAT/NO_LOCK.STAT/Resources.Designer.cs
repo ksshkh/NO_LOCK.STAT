@@ -70,15 +70,6 @@ namespace NO_LOCK.STAT {
         }
         
         /// <summary>
-        ///   Ищет локализованную строку, похожую на {0}.
-        /// </summary>
-        internal static string AnalyzerMessageFormat {
-            get {
-                return ResourceManager.GetString("AnalyzerMessageFormat", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Ищет локализованную строку, похожую на No lock stat.
         /// </summary>
         internal static string AnalyzerTitle {
@@ -99,9 +90,9 @@ namespace NO_LOCK.STAT {
         /// <summary>
         ///   Ищет локализованную строку, похожую на ⚠️〔NO_LOCK.STAT Possible missing lock on this before accessing to the {0} variable. It is used {1} times under lock and {2} time without lock.〕.
         /// </summary>
-        internal static string VariableMessage {
+        internal static string MissingLock {
             get {
-                return ResourceManager.GetString("VariableMessage", resourceCulture);
+                return ResourceManager.GetString("MissingLock", resourceCulture);
             }
         }
     }

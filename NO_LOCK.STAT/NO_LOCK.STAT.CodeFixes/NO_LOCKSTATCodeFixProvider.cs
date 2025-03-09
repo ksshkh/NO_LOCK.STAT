@@ -20,7 +20,7 @@ namespace NO_LOCK.STAT
     {
         public sealed override ImmutableArray<string> FixableDiagnosticIds
         {
-            get { return ImmutableArray.Create(NO_LOCKSTATAnalyzer.DiagnosticId); }
+            get { return ImmutableArray.Create(NO_LOCKSTATAnalyzer.DiagnosticIdMl, NO_LOCKSTATAnalyzer.DiagnosticIdDo); }
         }
 
         public sealed override FixAllProvider GetFixAllProvider()

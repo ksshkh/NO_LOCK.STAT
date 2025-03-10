@@ -79,7 +79,7 @@ namespace NO_LOCK.STAT {
         }
         
         /// <summary>
-        ///   Ищет локализованную строку, похожую на ⚠️〔NO_LOCK.STAT Possible using different objects to lock the variable {0}. In this place the object is {1}, but this variable is locked with the object {2} in its first lock.〕.
+        ///   Ищет локализованную строку, похожую на ⚠️〔NO_LOCK.STAT Possible using different objects to lock the variable {0}. In most cases ({1}%)  the object is {2}, but this variable is locked with the object {3}.〕.
         /// </summary>
         internal static string DiffLockObjects {
             get {
@@ -88,7 +88,7 @@ namespace NO_LOCK.STAT {
         }
         
         /// <summary>
-        ///   Ищет локализованную строку, похожую на ⚠️〔NO_LOCK.STAT Possible missing lock on this before accessing to the {0} variable. It is used {1} times under lock and {2} time without lock.〕.
+        ///   Ищет локализованную строку, похожую на ⚠️〔NO_LOCK.STAT Possible missing lock on this before accessing to the {0} variable. In most cases ({1}%) it is used with the same lock object ({2} times under lock and {3} time without lock).〕.
         /// </summary>
         internal static string MissingLock {
             get {

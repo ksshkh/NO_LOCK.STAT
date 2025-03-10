@@ -122,7 +122,7 @@
     <comment>The title of the diagnostic.</comment>
   </data>
   <data name="DiffLockObjects" xml:space="preserve">
-    <value>⚠️〔NO_LOCK.STAT Possible using different objects to lock the variable {0}. In this place the object is {1}, but this variable is also locked with the object {2}.〕</value>
+    <value>⚠️〔NO_LOCK.STAT Possible using different objects to lock the variable {0}. In this place the object is {1}, but this variable is locked with the object {2} in its first lock.〕</value>
     <comment>The result of the diagnostic</comment>
   </data>
   <data name="MissingLock" xml:space="preserve">

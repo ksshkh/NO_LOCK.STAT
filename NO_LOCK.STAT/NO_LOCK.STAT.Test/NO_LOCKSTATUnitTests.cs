@@ -93,11 +93,7 @@ namespace NO_LOCK.STAT.Test
             }
         }";
 
-            var expected = VerifyCS.Diagnostic("NO_LOCKSTAT_ML")
-                .WithLocation(8, 17) 
-                .WithArguments("_f", "0", "1");
-
-            await VerifyCS.VerifyAnalyzerAsync(test, expected);
+            await VerifyCS.VerifyAnalyzerAsync(test);
         }
 
         [TestMethod]
@@ -115,15 +111,7 @@ namespace NO_LOCK.STAT.Test
             }
         }";
 
-            var expected1 = VerifyCS.Diagnostic("NO_LOCKSTAT_ML")
-                .WithLocation(8, 17) 
-                .WithArguments("_f", "0", "2");
-
-            var expected2 = VerifyCS.Diagnostic("NO_LOCKSTAT_ML")
-                .WithLocation(9, 17) 
-                .WithArguments("_f", "0", "2");
-
-            await VerifyCS.VerifyAnalyzerAsync(test, expected1, expected2);
+            await VerifyCS.VerifyAnalyzerAsync(test);
         }
 
         [TestMethod]
@@ -194,15 +182,11 @@ namespace NO_LOCK.STAT.Test
             }
         }";
 
-            var expected1 = VerifyCS.Diagnostic("NO_LOCKSTAT_DO")
-                .WithLocation(12, 21)
-                .WithArguments("_f", "lockObject1", "lockObject2");
-
-            var expected2 = VerifyCS.Diagnostic("NO_LOCKSTAT_DO")
+            var expected = VerifyCS.Diagnostic("NO_LOCKSTAT_DO")
                 .WithLocation(20, 21)
                 .WithArguments("_f", "lockObject2", "lockObject1");
 
-            await VerifyCS.VerifyAnalyzerAsync(test, expected1, expected2);
+            await VerifyCS.VerifyAnalyzerAsync(test, expected);
         }
 
         [TestMethod]
@@ -233,11 +217,63 @@ namespace NO_LOCK.STAT.Test
             }
         }";
 
-            var expected = VerifyCS.Diagnostic("NO_LOCKSTAT_ML")
-                .WithLocation(21, 21) 
-                .WithArguments("_f", "0", "1");
+            await VerifyCS.VerifyAnalyzerAsync(test);
+        }
 
-            await VerifyCS.VerifyAnalyzerAsync(test, expected);
+        [TestMethod]
+        public async Task VariablesInDiffClassesWithAndWithoutLocks()
+        {
+            var test = @"
+        namespace VariablesInDiffClasses
+        {
+            class FirstClass
+            {
+                int _f;
+
+                void baz()
+                {
+                    lock (this) 
+                        _f = 6; 
+                }
+
+                void foo()
+                {
+                    _f = 4; 
+                }
+            }
+
+            class SecondClass
+            {
+                int _f;
+
+                void baz()
+                {
+                    lock (this) 
+                        _f = 6; 
+                }
+
+                void abc()
+                {
+                    lock (this) 
+                        _f = 8; 
+                }
+
+                void foo()
+                {
+                    _f = 4; 
+                }
+            }
+        }";
+
+            var expected1 = VerifyCS.Diagnostic("NO_LOCKSTAT_ML")
+                .WithLocation(16, 21)
+                .WithArguments("_f", "1", "1");
+
+            var expected2 = VerifyCS.Diagnostic("NO_LOCKSTAT_ML")
+                .WithLocation(38, 21)
+                .WithArguments("_f", "2", "1");
+
+            await VerifyCS.VerifyAnalyzerAsync(test, expected1, expected2);
         }
     }
 }

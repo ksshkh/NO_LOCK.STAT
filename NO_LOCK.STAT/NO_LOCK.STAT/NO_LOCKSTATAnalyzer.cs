@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Data;
 using System.Diagnostics.SymbolStore;
 using System.Linq;
 using System.Threading;
@@ -40,95 +39,132 @@ namespace NO_LOCK.STAT
         public override void Initialize(AnalysisContext context)
         {
             context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-
             context.RegisterCompilationStartAction(compilationStartContext =>
             {
-                compilationStartContext.RegisterSymbolStartAction(symbolStartContext =>
+                var compilation = compilationStartContext.Compilation;
+
+                compilationStartContext.RegisterSyntaxTreeAction(treeContext =>
                 {
-                    AnalyzeSymbol(symbolStartContext);
-                }, SymbolKind.Field);
+                    var semanticModel = compilation.GetSemanticModel(treeContext.Tree);
 
-                compilationStartContext.RegisterSymbolStartAction(symbolStartContext =>
-                {
-                    AnalyzeSymbol(symbolStartContext);
-                }, SymbolKind.Property);
-            });
-        }
+                    var root = treeContext.Tree.GetRoot();
+                    var visitor = new VariableVisitor(semanticModel);
+                    visitor.Visit(root);
 
-        private void AnalyzeSymbol(SymbolStartAnalysisContext context)
-        {
-            var symbol = context.Symbol;
-            var variablesInfo = new List<(string lockObject, Location location)>();
-
-            context.RegisterSyntaxNodeAction(nodeContext =>
-            {
-                var identifier = (IdentifierNameSyntax)nodeContext.Node;
-                var currentSymbol = nodeContext.SemanticModel.GetSymbolInfo(identifier).Symbol;
-
-                if (!SymbolEqualityComparer.Default.Equals(currentSymbol, symbol))
-                    return;
-
-                variablesInfo.Add((GetLockObject(identifier), identifier.GetLocation()));
-            }, SyntaxKind.IdentifierName);
-
-            context.RegisterSymbolEndAction(symbolEndContext =>
-            {
-                int numOfLocked = 0;
-                int numOfUnlocked = 0;
-                string sampleObject = null;
-
-                foreach (var variableInfo in variablesInfo)
-                {
-                    if (variableInfo.lockObject == null)
+                    foreach (var curVariable in visitor.Variables)
                     {
-                        numOfUnlocked++;
-                    }
-                    else
-                    {
-                        numOfLocked++;
-                        if (sampleObject == null)
+                        var variableName = curVariable.Key;
+                        var variableInfo = curVariable.Value;
+
+                        if (variableInfo.numOfUnlocked > 0 && variableInfo.numOfLocked > 0)
                         {
-                            sampleObject = variableInfo.lockObject;
+                            foreach (var curStat in variableInfo.variableInfo)
+                            {
+                                if (curStat.lockObject == null)
+                                {
+                                    var diagnostic = Diagnostic.Create(
+                                        Rule_MissingLock,
+                                        curStat.location,
+                                        variableName.Name,
+                                        variableInfo.numOfLocked,
+                                        variableInfo.numOfUnlocked
+                                    );
+                                    treeContext.ReportDiagnostic(diagnostic);
+                                }
+                            }                            
                         }
-                    }
-                }
 
-                foreach (var variableInfo in variablesInfo)
-                {
-                    if (variableInfo.lockObject == null)
-                    {
-                        var noLockDiagnostic = Diagnostic.Create(
-                            descriptor: Rule_MissingLock,
-                            location: variableInfo.location,
-                            symbol.Name, numOfLocked, numOfUnlocked);
+                        string sampleObject = null;
 
-                        symbolEndContext.ReportDiagnostic(noLockDiagnostic);
-                    }
-                    else if (variableInfo.lockObject != sampleObject)
-                    {
-                        var diffLockObjectsDiagnostic = Diagnostic.Create(
-                            descriptor: Rule_DiffLockObjects,
-                            location: variableInfo.location,
-                            symbol.Name, sampleObject, variableInfo.lockObject);
+                        foreach (var curStat in variableInfo.variableInfo)
+                        {
+                            if (curStat.lockObject != null && sampleObject == null)
+                            {
+                                sampleObject = curStat.lockObject;
+                            }
+                            else if (curStat.lockObject != sampleObject && curStat.lockObject != null)
+                            {
+                                var diagnostic = Diagnostic.Create(
+                                    Rule_DiffLockObjects,
+                                    curStat.location,
+                                    variableName.Name,
+                                    curStat.lockObject,
+                                    sampleObject
+                                );
+                                treeContext.ReportDiagnostic(diagnostic);
+                            }
+                        }
 
-                        symbolEndContext.ReportDiagnostic(diffLockObjectsDiagnostic);
                     }
-                }
+                });
             });
         }
 
-        public static string GetLockObject(SyntaxNode node)
+        public class VariableVisitor : CSharpSyntaxWalker
         {
-            var parent = node.Parent;
-            while (parent != null)
+            private readonly SemanticModel _semanticModel;
+            public Dictionary<ISymbol, VariableStats> Variables { get; }  = new Dictionary<ISymbol, VariableStats>();
+
+            public VariableVisitor(SemanticModel semanticModel)
             {
-                if (parent is LockStatementSyntax lockStatement)
-                {
-                    return lockStatement.Expression.ToString();
-                }
-                parent = parent.Parent;
+                _semanticModel = semanticModel;
             }
-            return null;
+
+            public override void VisitIdentifierName(IdentifierNameSyntax node)
+            {
+                var symbol = _semanticModel.GetSymbolInfo(node).Symbol;
+                if (symbol == null || (symbol.Kind != SymbolKind.Field && symbol.Kind != SymbolKind.Property))
+                {
+                    base.VisitIdentifierName(node);
+                    return;
+                }
+
+                string lockObject = GetLockObject(node);
+                UpdateVariableStats(symbol, lockObject, node.GetLocation());
+
+                base.VisitIdentifierName(node);
+            }
+
+            public static string GetLockObject(SyntaxNode node)
+            {
+                var parent = node.Parent;
+                while (parent != null)
+                {
+                    if (parent is LockStatementSyntax lockStatement)
+                    {
+                        return lockStatement.Expression.ToString();
+                    }
+                    parent = parent.Parent;
+                }
+                return null;
+            }
+
+            private void UpdateVariableStats(ISymbol symbol, string lockObject, Location location)
+            {
+                if (!Variables.TryGetValue(symbol, out var stats))
+                {
+                    stats = new VariableStats();
+                    Variables[symbol] = stats;
+                }
+
+                stats.variableInfo.Add((lockObject, location));
+
+                if (lockObject != null)
+                {
+                    stats.numOfLocked++;
+                }
+                else
+                {
+                    stats.numOfUnlocked++;
+                }
+            }
+
+            public class VariableStats
+            {
+                public int numOfUnlocked { get; set; }
+                public int numOfLocked { get; set; }
+                public List<(string lockObject, Location location)> variableInfo { get; set; } = new List<(string, Location)>();
+            }
         }
     }
 }

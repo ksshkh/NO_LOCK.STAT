@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.SymbolStore;
@@ -10,6 +11,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using static NO_LOCK.STAT.NO_LOCKSTATAnalyzer.VariableVisitor;
 
 
 namespace NO_LOCK.STAT
@@ -41,17 +43,20 @@ namespace NO_LOCK.STAT
             context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
             context.RegisterCompilationStartAction(compilationStartContext =>
             {
-                var compilation = compilationStartContext.Compilation;
+                var allVariables = new ConcurrentDictionary<ISymbol, VariableStats>(SymbolEqualityComparer.Default);
 
                 compilationStartContext.RegisterSyntaxTreeAction(treeContext =>
                 {
-                    var semanticModel = compilation.GetSemanticModel(treeContext.Tree);
+                    var semanticModel = compilationStartContext.Compilation.GetSemanticModel(treeContext.Tree);
 
                     var root = treeContext.Tree.GetRoot();
-                    var visitor = new VariableVisitor(semanticModel);
+                    var visitor = new VariableVisitor(semanticModel, allVariables);
                     visitor.Visit(root);
+                });
 
-                    foreach (var curVariable in visitor.Variables)
+                compilationStartContext.RegisterCompilationEndAction(compilationEndContext =>
+                {
+                    foreach (var curVariable in allVariables)
                     {
                         var variableName = curVariable.Key;
                         var variableInfo = curVariable.Value;
@@ -69,7 +74,7 @@ namespace NO_LOCK.STAT
                                         variableInfo.numOfLocked,
                                         variableInfo.numOfUnlocked
                                     );
-                                    treeContext.ReportDiagnostic(diagnostic);
+                                    compilationEndContext.ReportDiagnostic(diagnostic);
                                 }
                             }                            
                         }
@@ -91,7 +96,7 @@ namespace NO_LOCK.STAT
                                     curStat.lockObject,
                                     sampleObject
                                 );
-                                treeContext.ReportDiagnostic(diagnostic);
+                                compilationEndContext.ReportDiagnostic(diagnostic);
                             }
                         }
 
@@ -103,11 +108,14 @@ namespace NO_LOCK.STAT
         public class VariableVisitor : CSharpSyntaxWalker
         {
             private readonly SemanticModel _semanticModel;
-            public Dictionary<ISymbol, VariableStats> Variables { get; }  = new Dictionary<ISymbol, VariableStats>();
+            private readonly ConcurrentDictionary<ISymbol, VariableStats> _allVariables;
 
-            public VariableVisitor(SemanticModel semanticModel)
+            public VariableVisitor(
+                SemanticModel semanticModel,
+                ConcurrentDictionary<ISymbol, VariableStats> allVariables)
             {
                 _semanticModel = semanticModel;
+                _allVariables = allVariables;
             }
 
             public override void VisitIdentifierName(IdentifierNameSyntax node)
@@ -141,21 +149,13 @@ namespace NO_LOCK.STAT
 
             private void UpdateVariableStats(ISymbol symbol, string lockObject, Location location)
             {
-                if (!Variables.TryGetValue(symbol, out var stats))
-                {
-                    stats = new VariableStats();
-                    Variables[symbol] = stats;
-                }
+                var stats = _allVariables.GetOrAdd(symbol, _ => new VariableStats());
 
-                stats.variableInfo.Add((lockObject, location));
-
-                if (lockObject != null)
+                lock (stats) 
                 {
-                    stats.numOfLocked++;
-                }
-                else
-                {
-                    stats.numOfUnlocked++;
+                    stats.variableInfo.Add((lockObject, location));
+                    if (lockObject != null) stats.numOfLocked++;
+                    else stats.numOfUnlocked++;
                 }
             }
 
@@ -163,7 +163,8 @@ namespace NO_LOCK.STAT
             {
                 public int numOfUnlocked { get; set; }
                 public int numOfLocked { get; set; }
-                public List<(string lockObject, Location location)> variableInfo { get; set; } = new List<(string, Location)>();
+                public List<(string lockObject, Location location)> variableInfo { get; }
+                    = new List<(string, Location)>();
             }
         }
     }

@@ -88,7 +88,7 @@ namespace NO_LOCK.STAT {
         }
         
         /// <summary>
-        ///   Ищет локализованную строку, похожую на ⚠️〔NO_LOCK.STAT Possible missing lock on this before accessing to the {0} variable. In most cases ({1}%) it is used with the same lock object ({2} times under lock and {3} time without lock).〕.
+        ///   Ищет локализованную строку, похожую на ⚠️〔NO_LOCK.STAT Possible missing lock on this before accessing to the {0} variable. In most cases ({1}%) it is used with the same lock object {2} ({3} times under this lock and {4} time without it).〕.
         /// </summary>
         internal static string MissingLock {
             get {

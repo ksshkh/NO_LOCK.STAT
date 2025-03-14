@@ -100,6 +100,7 @@ namespace NO_LOCK.STAT
                                             curLoc,
                                             variableName.Name,
                                             curThreshold,
+                                            maxLockObject,
                                             maxLock,
                                             totalNumOfUsage - maxLock
                                         );

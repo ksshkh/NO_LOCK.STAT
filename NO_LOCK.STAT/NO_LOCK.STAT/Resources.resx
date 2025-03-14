@@ -126,7 +126,7 @@
     <comment>The result of the diagnostic</comment>
   </data>
   <data name="MissingLock" xml:space="preserve">
-    <value>⚠️〔NO_LOCK.STAT Possible missing lock on this before accessing to the {0} variable. In most cases ({1}%) it is used with the same lock object ({2} times under lock and {3} time without lock).〕</value>
+    <value>⚠️〔NO_LOCK.STAT Possible missing lock on this before accessing to the {0} variable. In most cases ({1}%) it is used with the same lock object {2} ({3} times under this lock and {4} time without it).〕</value>
     <comment>The result of the diagnostic</comment>
   </data>
   <data name="AnalyzerDescription" xml:space="preserve">

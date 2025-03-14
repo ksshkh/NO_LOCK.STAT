@@ -53,7 +53,7 @@ namespace NO_LOCK.STAT.Test
 
             var expected = VerifyCS.Diagnostic("NO_LOCKSTAT_ML")
                 .WithLocation(7, 21) 
-                .WithArguments("_f", "75", "3", "1");
+                .WithArguments("_f", "75", "this", "3", "1");
 
             await VerifyCS.VerifyAnalyzerAsync(test, expected);
         }
@@ -147,7 +147,7 @@ namespace NO_LOCK.STAT.Test
 
             var expected = VerifyCS.Diagnostic("NO_LOCKSTAT_ML")
                 .WithLocation(10, 21) 
-                .WithArguments("_f", "75", "3", "1");
+                .WithArguments("_f", "75", "this", "3", "1");
 
             await VerifyCS.VerifyAnalyzerAsync(test, expected);
         }
@@ -287,7 +287,7 @@ namespace NO_LOCK.STAT.Test
 
             var expected = VerifyCS.Diagnostic("NO_LOCKSTAT_ML")
                 .WithLocation(41, 21)
-                .WithArguments("_f", "75", "3", "1");
+                .WithArguments("_f", "75", "this", "3", "1");
 
             await VerifyCS.VerifyAnalyzerAsync(test, expected);
         }
@@ -342,7 +342,7 @@ namespace NO_LOCK.STAT.Test
 
         var expected = VerifyCS.Diagnostic("NO_LOCKSTAT_ML")
             .WithSpan(28, 25, 28, 27)
-            .WithArguments("_f", "75", "3", "1");
+            .WithArguments("_f", "75", "this", "3", "1");
 
             await VerifyCS.VerifyAnalyzerAsync(test, expected);
         }
@@ -504,7 +504,7 @@ namespace NO_LOCK.STAT.Test
 
             var expected2 = VerifyCS.Diagnostic("NO_LOCKSTAT_ML")
                 .WithLocation(51, 17)
-                .WithArguments("_f", "71", "5", "2");
+                .WithArguments("_f", "71", "lockObject1", "5", "2");
 
             var expected3 = VerifyCS.Diagnostic("NO_LOCKSTAT_DO")
                 .WithLocation(14, 21)
@@ -572,9 +572,152 @@ namespace NO_LOCK.STAT.Test
 
             var expected2 = VerifyCS.Diagnostic("NO_LOCKSTAT_ML")
                 .WithLocation(46, 17)
-                .WithArguments("_f", "71", "5", "2");
+                .WithArguments("_f", "71", "lockObject1", "5", "2");
 
             await VerifyCS.VerifyAnalyzerAsync(test, expected1, expected2);
+        }
+
+        [TestMethod]
+        public async Task SameLockObjectsInDiffClasses()
+        {
+            var test = @"
+        namespace SameLockObjectsInDiffClasses
+        {
+            class FirstClass
+            {
+                object lockObject1 = new object();
+                public int _f;
+
+                void baz()
+                {
+                    lock (lockObject1) 
+                        _f = 6; 
+                }
+
+                void foo()
+                {
+                    lock (lockObject1) 
+                        _f = 6;
+
+                    lock (lockObject1) 
+                        _f = 6;
+
+                    lock (lockObject1) 
+                        _f = 6;
+                }
+            }
+
+            class SecondClass
+            {
+                object lockObject1 = new object();
+                void baz(FirstClass obj)
+                {
+                    lock (lockObject1) 
+                        obj._f = 6; 
+                }
+            }
+        }";
+
+            var expected = VerifyCS.Diagnostic("NO_LOCKSTAT_DO")
+                .WithLocation(34, 29)
+                .WithArguments("_f", "80", "lockObject1", "lockObject1");
+
+            await VerifyCS.VerifyAnalyzerAsync(test, expected);
+        }
+
+        [TestMethod]
+        public async Task DoubleLocks()
+        {
+            var test = @"
+        class DoubleLocks
+        {
+            object lockObject1 = new object();
+            object lockObject2 = new object();
+            int _f;
+
+            void foo()
+            {
+                lock (lockObject1)
+                {
+                    lock (lockObject2)
+                    {
+                        _f = 4; 
+                    }
+                }
+
+                lock (lockObject1)
+                {
+                    lock (lockObject2)
+                    {
+                        _f = 4; 
+                    }
+                }
+
+                lock (lockObject1)
+                {
+                    lock (lockObject2)
+                    {
+                        _f = 4; 
+                    }
+                }
+
+                lock (lockObject2)
+                {
+                    lock (lockObject1)
+                    {
+                        _f = 4; 
+                    }
+                }
+
+                lock (lockObject1)
+                {
+                    _f = 4; 
+                }
+            }
+
+            void bar()
+            {
+                lock (lockObject2)
+                {
+                    _f = 5; 
+                }
+            }
+
+            void baz()
+            {
+                lock (lockObject2)
+                {
+                    lock (lockObject1)
+                    {
+                        _f = 4; 
+                    }
+                }
+            }
+            
+            void abc()
+            {
+                _f = 4; 
+            }
+
+        }";
+
+            var expected1 = VerifyCS.Diagnostic("NO_LOCKSTAT_DO")
+                .WithLocation(44, 21)
+                .WithArguments("_f", "75", "lockObject2", "lockObject1");
+
+            var expected2 = VerifyCS.Diagnostic("NO_LOCKSTAT_DO")
+                .WithLocation(52, 21)
+                .WithArguments("_f", "75", "lockObject1", "lockObject2");
+
+            var expected3 = VerifyCS.Diagnostic("NO_LOCKSTAT_ML")
+                .WithLocation(69, 17)
+                .WithArguments("_f", "75", "lockObject1", "6", "2");
+
+            var expected4 = VerifyCS.Diagnostic("NO_LOCKSTAT_ML")
+                .WithLocation(69, 17)
+                .WithArguments("_f", "75", "lockObject2", "6", "2");
+
+            await VerifyCS.VerifyAnalyzerAsync(test, expected1, expected2, expected3, expected4);
         }
     }
 }

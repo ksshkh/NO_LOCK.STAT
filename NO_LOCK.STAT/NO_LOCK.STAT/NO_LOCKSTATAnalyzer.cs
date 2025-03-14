@@ -157,14 +157,15 @@ namespace NO_LOCK.STAT
                 base.VisitIdentifierName(node);
             }
 
-            public static string GetLockObject(SyntaxNode node)
+            public string GetLockObject(SyntaxNode node)
             {
                 var parent = node.Parent;
                 while (parent != null)
                 {
                     if (parent is LockStatementSyntax lockStatement)
                     {
-                        return lockStatement.Expression.ToString();
+                        var symbolInfo = _semanticModel.GetSymbolInfo(lockStatement.Expression);
+                        return symbolInfo.Symbol.ToDisplayString();
                     }
                     parent = parent.Parent;
                 }

@@ -53,7 +53,7 @@ namespace NO_LOCK.STAT.Test
 
             var expected = VerifyCS.Diagnostic("NO_LOCKSTAT_ML")
                 .WithLocation(7, 21) 
-                .WithArguments("_f", "75", "this", "3", "1");
+                .WithArguments("_f", "75", "IsAlwaysCalledInsideLock this", "3", "1");
 
             await VerifyCS.VerifyAnalyzerAsync(test, expected);
         }
@@ -147,7 +147,7 @@ namespace NO_LOCK.STAT.Test
 
             var expected = VerifyCS.Diagnostic("NO_LOCKSTAT_ML")
                 .WithLocation(10, 21) 
-                .WithArguments("_f", "75", "this", "3", "1");
+                .WithArguments("_f", "75", "VarUsedInDifferentContexts this", "3", "1");
 
             await VerifyCS.VerifyAnalyzerAsync(test, expected);
         }
@@ -196,7 +196,7 @@ namespace NO_LOCK.STAT.Test
 
             var expected = VerifyCS.Diagnostic("NO_LOCKSTAT_DO")
                 .WithLocation(20, 21)
-                .WithArguments("_f", "80", "lockObject1", "lockObject2");
+                .WithArguments("_f", "80", "DiffLockObjects.lockObject1", "DiffLockObjects.lockObject2");
 
             await VerifyCS.VerifyAnalyzerAsync(test, expected);
         }
@@ -287,7 +287,7 @@ namespace NO_LOCK.STAT.Test
 
             var expected = VerifyCS.Diagnostic("NO_LOCKSTAT_ML")
                 .WithLocation(41, 21)
-                .WithArguments("_f", "75", "this", "3", "1");
+                .WithArguments("_f", "75", "VariablesInDiffClasses.SecondClass this", "3", "1");
 
             await VerifyCS.VerifyAnalyzerAsync(test, expected);
         }
@@ -301,13 +301,18 @@ namespace NO_LOCK.STAT.Test
 
         namespace TestProject
         {
+            public static class LockObjects
+            {
+                public static object LockObject1 = new object();
+            }
+
             public class Class1
             {
                 public int _f;
 
                 public void MethodA()
                 {
-                    lock (this)
+                    lock (LockObjects.LockObject1)
                     {
                         _f = 5; 
                     }
@@ -327,12 +332,12 @@ namespace NO_LOCK.STAT.Test
 
                 public void MethodC(Class1 obj)
                 {
-                    lock (this)
+                    lock (LockObjects.LockObject1)
                     {
                         obj._f = 5; 
                     }
 
-                    lock (this)
+                    lock (LockObjects.LockObject1)
                     {
                         obj._f = 5; 
                     }
@@ -341,8 +346,8 @@ namespace NO_LOCK.STAT.Test
         }";
 
         var expected = VerifyCS.Diagnostic("NO_LOCKSTAT_ML")
-            .WithSpan(28, 25, 28, 27)
-            .WithArguments("_f", "75", "this", "3", "1");
+            .WithSpan(33, 25, 33, 27)
+            .WithArguments("_f", "75", "TestProject.LockObjects.LockObject1", "3", "1");
 
             await VerifyCS.VerifyAnalyzerAsync(test, expected);
         }
@@ -356,13 +361,19 @@ namespace NO_LOCK.STAT.Test
 
         namespace TestProject
         {
+            public static class LockObjects
+            {
+                public static object LockObject1 = new object();
+                public static object LockObject2 = new object();
+            }
+
             public class Class1
             {
                 public int _f;
 
                 public void MethodA()
                 {
-                    lock (this)
+                    lock (LockObjects.LockObject2)
                     {
                         _f = 5; 
                     }
@@ -379,17 +390,17 @@ namespace NO_LOCK.STAT.Test
 
                 public void MethodB(Class1 obj)
                 {
-                    lock (lockObject1)
+                    lock (LockObjects.LockObject1)
                     {
                         obj._f = 15; 
                     }
                     
-                    lock (this)
+                    lock (LockObjects.LockObject1)
                     {
                         obj._f = 15; 
                     }
                     
-                    lock (this)
+                    lock (LockObjects.LockObject1)
                     {
                         obj._f = 15; 
                     }
@@ -398,8 +409,8 @@ namespace NO_LOCK.STAT.Test
         }";
 
             var expected = VerifyCS.Diagnostic("NO_LOCKSTAT_DO")
-                .WithSpan(32, 29, 32, 31)
-                .WithArguments("_f", "75", "this", "lockObject1");
+                .WithSpan(21, 25, 21, 27)
+                .WithArguments("_f", "75", "TestProject.LockObjects.LockObject1", "TestProject.LockObjects.LockObject2");
 
             await VerifyCS.VerifyAnalyzerAsync(test, expected);
         }
@@ -500,15 +511,15 @@ namespace NO_LOCK.STAT.Test
 
             var expected1 = VerifyCS.Diagnostic("NO_LOCKSTAT_DO")
                 .WithLocation(44, 21)
-                .WithArguments("_f", "71", "lockObject1", "lockObject2");
+                .WithArguments("_f", "71", "DiffLockObjectsAndMissingLock.lockObject1", "DiffLockObjectsAndMissingLock.lockObject2");
 
             var expected2 = VerifyCS.Diagnostic("NO_LOCKSTAT_ML")
                 .WithLocation(51, 17)
-                .WithArguments("_f", "71", "lockObject1", "5", "2");
+                .WithArguments("_f", "71", "DiffLockObjectsAndMissingLock.lockObject1", "5", "2");
 
             var expected3 = VerifyCS.Diagnostic("NO_LOCKSTAT_DO")
                 .WithLocation(14, 21)
-                .WithArguments("_x", "75", "lockObject2", "lockObject1");
+                .WithArguments("_x", "75", "DiffLockObjectsAndMissingLock.lockObject2", "DiffLockObjectsAndMissingLock.lockObject1");
 
             await VerifyCS.VerifyAnalyzerAsync(test, expected3, expected1, expected2);
         }
@@ -568,11 +579,11 @@ namespace NO_LOCK.STAT.Test
 
             var expected1 = VerifyCS.Diagnostic("NO_LOCKSTAT_DO")
                 .WithLocation(40, 21)
-                .WithArguments("_f", "71", "lockObject1", "lockObject2");
+                .WithArguments("_f", "71", "DiffLockObjectsAndMissingLock.lockObject1", "DiffLockObjectsAndMissingLock.lockObject2");
 
             var expected2 = VerifyCS.Diagnostic("NO_LOCKSTAT_ML")
                 .WithLocation(46, 17)
-                .WithArguments("_f", "71", "lockObject1", "5", "2");
+                .WithArguments("_f", "71", "DiffLockObjectsAndMissingLock.lockObject1", "5", "2");
 
             await VerifyCS.VerifyAnalyzerAsync(test, expected1, expected2);
         }
@@ -620,7 +631,7 @@ namespace NO_LOCK.STAT.Test
 
             var expected = VerifyCS.Diagnostic("NO_LOCKSTAT_DO")
                 .WithLocation(34, 29)
-                .WithArguments("_f", "80", "lockObject1", "lockObject1");
+                .WithArguments("_f", "80", "SameLockObjectsInDiffClasses.FirstClass.lockObject1", "SameLockObjectsInDiffClasses.SecondClass.lockObject1");
 
             await VerifyCS.VerifyAnalyzerAsync(test, expected);
         }

@@ -33,6 +33,9 @@ namespace NO_LOCK.STAT
         private static readonly DiagnosticDescriptor Rule_MissingLock = new DiagnosticDescriptor(DiagnosticIdMl, Title, MessageFormat_MissingLock, Category, DiagnosticSeverity.Warning, isEnabledByDefault: true, description: Description);
         private static readonly DiagnosticDescriptor Rule_DiffLockObjects = new DiagnosticDescriptor(DiagnosticIdDo, Title, MessageFormat_DiffLockObjects, Category, DiagnosticSeverity.Warning, isEnabledByDefault: true, description: Description);
 
+        public const int threshold = 70;
+        public const string NullKey = "##NULL_KEY##";
+
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
         {
             get { return ImmutableArray.Create(Rule_MissingLock, Rule_DiffLockObjects); }
@@ -43,7 +46,7 @@ namespace NO_LOCK.STAT
             context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
             context.RegisterCompilationStartAction(compilationStartContext =>
             {
-                var allVariables = new ConcurrentDictionary<ISymbol, VariableStats>(SymbolEqualityComparer.Default);
+                var allVariables = new ConcurrentDictionary<ISymbol, ConcurrentDictionary<string, VariableStats>>(SymbolEqualityComparer.Default);
 
                 compilationStartContext.RegisterSyntaxTreeAction(treeContext =>
                 {
@@ -61,45 +64,65 @@ namespace NO_LOCK.STAT
                         var variableName = curVariable.Key;
                         var variableInfo = curVariable.Value;
 
-                        if (variableInfo.numOfUnlocked > 0 && variableInfo.numOfLocked > 0)
+                        int totalNumOfUsage  = 0;
+                        int numOfUnlocked    = 0;
+                        int maxLock          = 0;
+                        string maxLockObject = null;
+
+                        foreach (var curLockObject in variableInfo)
                         {
-                            foreach (var curStat in variableInfo.variableInfo)
+                            if (curLockObject.Key == NullKey)
                             {
-                                if (curStat.lockObject == null)
-                                {
-                                    var diagnostic = Diagnostic.Create(
-                                        Rule_MissingLock,
-                                        curStat.location,
-                                        variableName.Name,
-                                        variableInfo.numOfLocked,
-                                        variableInfo.numOfUnlocked
-                                    );
-                                    compilationEndContext.ReportDiagnostic(diagnostic);
-                                }
+                                numOfUnlocked = curLockObject.Value.numOfUsage;
                             }                            
+                            else if (maxLock < curLockObject.Value.numOfUsage)
+                            {
+                                maxLock = curLockObject.Value.numOfUsage;
+                                maxLockObject = curLockObject.Key;
+                            }
+
+                            totalNumOfUsage += curLockObject.Value.numOfUsage;
                         }
 
-                        string sampleObject = null;
+                        if (totalNumOfUsage == 0) return;
 
-                        foreach (var curStat in variableInfo.variableInfo)
+                        int curThreshold = (int)((((double)maxLock / (double)totalNumOfUsage) * 100));
+                        if (curThreshold >= threshold)
                         {
-                            if (curStat.lockObject != null && sampleObject == null)
+                            foreach (var curLockObject in variableInfo)
                             {
-                                sampleObject = curStat.lockObject;
-                            }
-                            else if (curStat.lockObject != sampleObject && curStat.lockObject != null)
-                            {
-                                var diagnostic = Diagnostic.Create(
-                                    Rule_DiffLockObjects,
-                                    curStat.location,
-                                    variableName.Name,
-                                    curStat.lockObject,
-                                    sampleObject
-                                );
-                                compilationEndContext.ReportDiagnostic(diagnostic);
+                                if (curLockObject.Key == NullKey)
+                                {
+                                    foreach (var curLoc in curLockObject.Value.variableLocation)
+                                    {
+                                        var diagnostic = Diagnostic.Create(
+                                            Rule_MissingLock,
+                                            curLoc,
+                                            variableName.Name,
+                                            curThreshold,
+                                            maxLock,
+                                            totalNumOfUsage - maxLock
+                                        );
+                                        compilationEndContext.ReportDiagnostic(diagnostic);
+                                    }
+                                }
+                                else if (curLockObject.Key != maxLockObject)
+                                {
+                                    foreach (var curLoc in curLockObject.Value.variableLocation)
+                                    {
+                                        var diagnostic = Diagnostic.Create(
+                                            Rule_DiffLockObjects,
+                                            curLoc,
+                                            variableName.Name,
+                                            curThreshold,
+                                            maxLockObject,
+                                            curLockObject.Key
+                                        );
+                                        compilationEndContext.ReportDiagnostic(diagnostic);
+                                    }
+                                }  
                             }
                         }
-
                     }
                 });
             });
@@ -108,11 +131,11 @@ namespace NO_LOCK.STAT
         public class VariableVisitor : CSharpSyntaxWalker
         {
             private readonly SemanticModel _semanticModel;
-            private readonly ConcurrentDictionary<ISymbol, VariableStats> _allVariables;
+            private readonly ConcurrentDictionary<ISymbol, ConcurrentDictionary<string, VariableStats>> _allVariables;
 
             public VariableVisitor(
                 SemanticModel semanticModel,
-                ConcurrentDictionary<ISymbol, VariableStats> allVariables)
+                ConcurrentDictionary<ISymbol, ConcurrentDictionary<string, VariableStats>> allVariables)
             {
                 _semanticModel = semanticModel;
                 _allVariables = allVariables;
@@ -149,22 +172,24 @@ namespace NO_LOCK.STAT
 
             private void UpdateVariableStats(ISymbol symbol, string lockObject, Location location)
             {
-                var stats = _allVariables.GetOrAdd(symbol, _ => new VariableStats());
+                string lockKey = lockObject ?? NullKey;
 
-                lock (stats) 
+                var innerDict = _allVariables.GetOrAdd(symbol,
+                    _ => new ConcurrentDictionary<string, VariableStats>());
+
+                var stats = innerDict.GetOrAdd(lockKey, _ => new VariableStats());
+
+                lock (stats)
                 {
-                    stats.variableInfo.Add((lockObject, location));
-                    if (lockObject != null) stats.numOfLocked++;
-                    else stats.numOfUnlocked++;
+                    stats.variableLocation.Add(location);
+                    stats.numOfUsage++;
                 }
             }
 
             public class VariableStats
             {
-                public int numOfUnlocked { get; set; }
-                public int numOfLocked { get; set; }
-                public List<(string lockObject, Location location)> variableInfo { get; }
-                    = new List<(string, Location)>();
+                public int numOfUsage { get; set; }
+                public List<Location> variableLocation { get; } = new List<Location>();
             }
         }
     }

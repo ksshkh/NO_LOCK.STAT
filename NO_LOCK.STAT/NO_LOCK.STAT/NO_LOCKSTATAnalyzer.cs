@@ -19,26 +19,21 @@ namespace NO_LOCK.STAT
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public class NO_LOCKSTATAnalyzer : DiagnosticAnalyzer
     {
-        public const string DiagnosticIdMl = "NO_LOCKSTAT_ML";
-        public const string DiagnosticIdDo = "NO_LOCKSTAT_DO";
+        public const string DiagnosticId = "NO_LOCKSTAT";
 
         private static readonly LocalizableString Title = new LocalizableResourceString(nameof(Resources.AnalyzerTitle), Resources.ResourceManager, typeof(Resources));
-
-        private static readonly LocalizableString MessageFormat_MissingLock = new LocalizableResourceString(nameof(Resources.MissingLock), Resources.ResourceManager, typeof(Resources));
-        private static readonly LocalizableString MessageFormat_DiffLockObjects = new LocalizableResourceString(nameof(Resources.DiffLockObjects), Resources.ResourceManager, typeof(Resources));
-
+        private static readonly LocalizableString MessageFormat = new LocalizableResourceString(nameof(Resources.MessageFormat), Resources.ResourceManager, typeof(Resources));      
         private static readonly LocalizableString Description = new LocalizableResourceString(nameof(Resources.AnalyzerDescription), Resources.ResourceManager, typeof(Resources));
         private const string Category = "Usage";
 
-        private static readonly DiagnosticDescriptor Rule_MissingLock = new DiagnosticDescriptor(DiagnosticIdMl, Title, MessageFormat_MissingLock, Category, DiagnosticSeverity.Warning, isEnabledByDefault: true, description: Description);
-        private static readonly DiagnosticDescriptor Rule_DiffLockObjects = new DiagnosticDescriptor(DiagnosticIdDo, Title, MessageFormat_DiffLockObjects, Category, DiagnosticSeverity.Warning, isEnabledByDefault: true, description: Description);
-
+        private static readonly DiagnosticDescriptor Rule = new DiagnosticDescriptor(DiagnosticId, Title, MessageFormat, Category, DiagnosticSeverity.Warning, isEnabledByDefault: true, description: Description);
+        
         public const int threshold = 70;
         public const string NullKey = "##NULL_KEY##";
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
         {
-            get { return ImmutableArray.Create(Rule_MissingLock, Rule_DiffLockObjects); }
+            get { return ImmutableArray.Create(Rule); }
         }
 
         public override void Initialize(AnalysisContext context)
@@ -91,37 +86,23 @@ namespace NO_LOCK.STAT
                         {
                             foreach (var curLockObject in variableInfo)
                             {
-                                if (curLockObject.Key == NullKey)
+                                if (curLockObject.Key == NullKey || curLockObject.Key != maxLockObject)
                                 {
                                     foreach (var curLoc in curLockObject.Value.variableLocation)
                                     {
+                                        string curLockName = (curLockObject.Key == NullKey) ? "no" : curLockObject.Key;
+
                                         var diagnostic = Diagnostic.Create(
-                                            Rule_MissingLock,
+                                            Rule,
                                             curLoc,
+                                            maxLockObject,
                                             variableName.Name,
                                             curThreshold,
-                                            maxLockObject,
-                                            maxLock,
-                                            totalNumOfUsage - maxLock
+                                            curLockName
                                         );
                                         compilationEndContext.ReportDiagnostic(diagnostic);
                                     }
                                 }
-                                else if (curLockObject.Key != maxLockObject)
-                                {
-                                    foreach (var curLoc in curLockObject.Value.variableLocation)
-                                    {
-                                        var diagnostic = Diagnostic.Create(
-                                            Rule_DiffLockObjects,
-                                            curLoc,
-                                            variableName.Name,
-                                            curThreshold,
-                                            maxLockObject,
-                                            curLockObject.Key
-                                        );
-                                        compilationEndContext.ReportDiagnostic(diagnostic);
-                                    }
-                                }  
                             }
                         }
                     }

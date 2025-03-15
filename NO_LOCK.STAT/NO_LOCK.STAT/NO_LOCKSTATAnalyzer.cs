@@ -41,7 +41,7 @@ namespace NO_LOCK.STAT
             context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
             context.RegisterCompilationStartAction(compilationStartContext =>
             {
-                var allVariables = new ConcurrentDictionary<ISymbol, ConcurrentDictionary<string, VariableStats>>(SymbolEqualityComparer.Default);
+                var allVariables = new ConcurrentDictionary<ISymbol, (ConcurrentDictionary<string, VariableStats>, int)>(SymbolEqualityComparer.Default);
 
                 compilationStartContext.RegisterSyntaxTreeAction(treeContext =>
                 {
@@ -57,50 +57,34 @@ namespace NO_LOCK.STAT
                     foreach (var curVariable in allVariables)
                     {
                         var variableName = curVariable.Key;
-                        var variableInfo = curVariable.Value;
-
-                        int totalNumOfUsage  = 0;
-                        int numOfUnlocked    = 0;
-                        int maxLock          = 0;
-                        string maxLockObject = null;
+                        var variableInfo = curVariable.Value.Item1;
+                        int totalNumOfUsage  = curVariable.Value.Item2;
 
                         foreach (var curLockObject in variableInfo)
                         {
-                            if (curLockObject.Key == NullKey)
-                            {
-                                numOfUnlocked = curLockObject.Value.numOfUsage;
-                            }                            
-                            else if (maxLock < curLockObject.Value.numOfUsage)
-                            {
-                                maxLock = curLockObject.Value.numOfUsage;
-                                maxLockObject = curLockObject.Key;
-                            }
+                            if (curLockObject.Key == NullKey) continue;
 
-                            totalNumOfUsage += curLockObject.Value.numOfUsage;
-                        }
-
-                        if (totalNumOfUsage == 0) return;
-
-                        int curThreshold = (int)((((double)maxLock / (double)totalNumOfUsage) * 100));
-                        if (curThreshold >= threshold)
-                        {
-                            foreach (var curLockObject in variableInfo)
+                            int curThreshold = (int)((((double)curLockObject.Value.numOfUsage / (double)totalNumOfUsage) * 100));
+                            if (curThreshold >= threshold)
                             {
-                                if (curLockObject.Key == NullKey || curLockObject.Key != maxLockObject)
+                                foreach (var compareLockObject in variableInfo)
                                 {
-                                    foreach (var curLoc in curLockObject.Value.variableLocation)
+                                    if (compareLockObject.Key != curLockObject.Key)
                                     {
-                                        string curLockName = (curLockObject.Key == NullKey) ? "no" : curLockObject.Key;
+                                        foreach (var curLoc in compareLockObject.Value.variableLocation)
+                                        {
+                                            string compareLockName = (compareLockObject.Key == NullKey) ? "no" : compareLockObject.Key;
 
-                                        var diagnostic = Diagnostic.Create(
-                                            Rule,
-                                            curLoc,
-                                            maxLockObject,
-                                            variableName.Name,
-                                            curThreshold,
-                                            curLockName
-                                        );
-                                        compilationEndContext.ReportDiagnostic(diagnostic);
+                                            var diagnostic = Diagnostic.Create(
+                                                Rule,
+                                                curLoc,
+                                                curLockObject.Key,
+                                                variableName.Name,
+                                                curThreshold,
+                                                compareLockName
+                                            );
+                                            compilationEndContext.ReportDiagnostic(diagnostic);
+                                        }
                                     }
                                 }
                             }
@@ -113,11 +97,11 @@ namespace NO_LOCK.STAT
         public class VariableVisitor : CSharpSyntaxWalker
         {
             private readonly SemanticModel _semanticModel;
-            private readonly ConcurrentDictionary<ISymbol, ConcurrentDictionary<string, VariableStats>> _allVariables;
+            private readonly ConcurrentDictionary<ISymbol, (ConcurrentDictionary<string, VariableStats>, int)> _allVariables;
 
             public VariableVisitor(
                 SemanticModel semanticModel,
-                ConcurrentDictionary<ISymbol, ConcurrentDictionary<string, VariableStats>> allVariables)
+                ConcurrentDictionary<ISymbol, (ConcurrentDictionary<string, VariableStats>, int)> allVariables)
             {
                 _semanticModel = semanticModel;
                 _allVariables = allVariables;
@@ -132,33 +116,54 @@ namespace NO_LOCK.STAT
                     return;
                 }
 
-                string lockObject = GetLockObject(node);
-                UpdateVariableStats(symbol, lockObject, node.GetLocation());
+                List<string> lockObjects = GetLockObjects(node);
+
+                var variableEntry = _allVariables.GetOrAdd(symbol, _ => (new ConcurrentDictionary<string, VariableStats>(), 0));
+                int count = variableEntry.Item2 + 1;
+                _allVariables[symbol] = (variableEntry.Item1, count);
+
+                if (lockObjects.Count == 0)
+                {
+                    UpdateVariableStats(symbol, NullKey, node.GetLocation());
+                }
+                else
+                {
+                    foreach (var curLockObject in lockObjects)
+                    {
+                        UpdateVariableStats(symbol, curLockObject, node.GetLocation());
+                    }
+                }
 
                 base.VisitIdentifierName(node);
             }
 
-            public string GetLockObject(SyntaxNode node)
+            public List<string> GetLockObjects(SyntaxNode node)
             {
+                var lockObjects = new List<string>();
                 var parent = node.Parent;
+
                 while (parent != null)
                 {
                     if (parent is LockStatementSyntax lockStatement)
                     {
                         var symbolInfo = _semanticModel.GetSymbolInfo(lockStatement.Expression);
-                        return symbolInfo.Symbol.ToDisplayString();
+                        if (symbolInfo.Symbol != null)
+                        {
+                            lockObjects.Add(symbolInfo.Symbol.ToDisplayString());
+                        }
                     }
-                    parent = parent.Parent;
+                    parent = parent.Parent; 
                 }
-                return null;
+
+                return lockObjects; 
             }
 
             private void UpdateVariableStats(ISymbol symbol, string lockObject, Location location)
             {
                 string lockKey = lockObject ?? NullKey;
 
-                var innerDict = _allVariables.GetOrAdd(symbol,
-                    _ => new ConcurrentDictionary<string, VariableStats>());
+                var variableEntry = _allVariables.GetOrAdd(symbol, _ => (new ConcurrentDictionary<string, VariableStats>(), 0));
+                var innerDict = variableEntry.Item1;
 
                 var stats = innerDict.GetOrAdd(lockKey, _ => new VariableStats());
 

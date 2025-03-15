@@ -672,9 +672,9 @@ namespace NO_LOCK.STAT.Test
                     }
                 }
 
-                lock (lockObject2)
+                lock (lockObject1)
                 {
-                    lock (lockObject1)
+                    lock (lockObject2)
                     {
                         _f = 4; 
                     }
@@ -696,9 +696,9 @@ namespace NO_LOCK.STAT.Test
 
             void baz()
             {
-                lock (lockObject2)
+                lock (lockObject1)
                 {
-                    lock (lockObject1)
+                    lock (lockObject2)
                     {
                         _f = 4; 
                     }

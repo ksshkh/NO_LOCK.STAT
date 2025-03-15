@@ -714,19 +714,19 @@ namespace NO_LOCK.STAT.Test
 
             var expected1 = VerifyCS.Diagnostic("NO_LOCKSTAT")
                 .WithLocation(44, 21)
-                .WithArguments("DoubleLocks lockObject2", "_f", "75", "DoubleLocks lockObject1");
+                .WithArguments("DoubleLocks.lockObject2", "_f", "75", "DoubleLocks.lockObject1");
 
             var expected2 = VerifyCS.Diagnostic("NO_LOCKSTAT")
                 .WithLocation(52, 21)
-                .WithArguments("DoubleLocks lockObject1", "_f", "75", "DoubleLocks lockObject2");
+                .WithArguments("DoubleLocks.lockObject1", "_f", "75", "DoubleLocks.lockObject2");
 
             var expected3 = VerifyCS.Diagnostic("NO_LOCKSTAT")
                 .WithLocation(69, 17)
-                .WithArguments("DoubleLocks lockObject1", "_f", "75", "no");
+                .WithArguments("DoubleLocks.lockObject1", "_f", "75", "no");
 
             var expected4 = VerifyCS.Diagnostic("NO_LOCKSTAT")
                 .WithLocation(69, 17)
-                .WithArguments("DoubleLocks lockObject2", "_f", "75", "no");
+                .WithArguments("DoubleLocks.lockObject2", "_f", "75", "no");
 
             await VerifyCS.VerifyAnalyzerAsync(test, expected1, expected2, expected3, expected4);
         }

@@ -161,7 +161,7 @@ namespace NO_LOCK.STAT
                         var symbolInfo = _semanticModel.GetSymbolInfo(lockStatement.Expression);
                         if (symbolInfo.Symbol != null)
                         {
-                            lockObjects.Add(symbolInfo.Symbol);
+                            lockObjects.Add(symbolInfo.Symbol.OriginalDefinition);
                         }
                     }
                     parent = parent.Parent;

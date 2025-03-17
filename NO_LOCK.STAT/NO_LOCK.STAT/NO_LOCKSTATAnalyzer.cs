@@ -43,24 +43,10 @@ namespace NO_LOCK.STAT
             {
                 var allVariables = new ConcurrentDictionary<ISymbol, (ConcurrentDictionary<string, VariableStats>, int)>(SymbolEqualityComparer.Default);
 
-                var lockSymbols = new List<ISymbol>();
-
                 compilationStartContext.RegisterSyntaxTreeAction(treeContext =>
                 {
                     var semanticModel = compilationStartContext.Compilation.GetSemanticModel(treeContext.Tree);
-
                     var root = treeContext.Tree.GetRoot();
-
-                    var lockStatements = root.DescendantNodes().OfType<LockStatementSyntax>();
-                    foreach (var lockStatement in lockStatements)
-                    {
-                        var symbolInfo = semanticModel.GetSymbolInfo(lockStatement.Expression);
-                        if (symbolInfo.Symbol != null)
-                        {
-                            lockSymbols.Add(symbolInfo.Symbol);
-                        }
-                    }
-
                     var visitor = new VariableVisitor(semanticModel, allVariables);
                     visitor.Visit(root);
                 });
@@ -72,9 +58,6 @@ namespace NO_LOCK.STAT
                         var variableName = curVariable.Key;
                         var variableInfo = curVariable.Value.Item1;
                         int totalNumOfUsage  = curVariable.Value.Item2;
-
-                        bool exists = lockSymbols.Contains(variableName);
-                        if (exists) continue;
 
                         foreach (var curLockObject in variableInfo)
                         {
@@ -129,7 +112,9 @@ namespace NO_LOCK.STAT
             public override void VisitIdentifierName(IdentifierNameSyntax node)
             {
                 var symbol = _semanticModel.GetSymbolInfo(node).Symbol;
-                if (symbol == null || (symbol.Kind != SymbolKind.Field && symbol.Kind != SymbolKind.Property))
+                bool isLockObject = node.Parent is LockStatementSyntax;
+
+                if (symbol == null || (symbol.Kind != SymbolKind.Field && symbol.Kind != SymbolKind.Property) || isLockObject)
                 {
                     base.VisitIdentifierName(node);
                     return;

@@ -53,7 +53,7 @@ namespace NO_LOCK.STAT.Test
 
             var expected = VerifyCS.Diagnostic("NO_LOCKSTAT")
                 .WithLocation(7, 21) 
-                .WithArguments("IsAlwaysCalledInsideLock this", "_f", "75", "no");
+                .WithArguments("IsAlwaysCalledInsideLock", "_f", "75", "no");
 
             await VerifyCS.VerifyAnalyzerAsync(test, expected);
         }
@@ -147,7 +147,7 @@ namespace NO_LOCK.STAT.Test
 
             var expected = VerifyCS.Diagnostic("NO_LOCKSTAT")
                 .WithLocation(10, 21) 
-                .WithArguments("VarUsedInDifferentContexts this", "_f", "75", "no");
+                .WithArguments("VarUsedInDifferentContexts", "_f", "75", "no");
 
             await VerifyCS.VerifyAnalyzerAsync(test, expected);
         }
@@ -287,7 +287,7 @@ namespace NO_LOCK.STAT.Test
 
             var expected = VerifyCS.Diagnostic("NO_LOCKSTAT")
                 .WithLocation(41, 21)
-                .WithArguments("VariablesInDiffClasses.SecondClass this", "_f", "75", "no");
+                .WithArguments("VariablesInDiffClasses.SecondClass", "_f", "75", "no");
 
             await VerifyCS.VerifyAnalyzerAsync(test, expected);
         }

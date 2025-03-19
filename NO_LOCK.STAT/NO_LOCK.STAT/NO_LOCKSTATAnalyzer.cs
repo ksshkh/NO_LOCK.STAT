@@ -161,7 +161,16 @@ namespace NO_LOCK.STAT
                         var symbolInfo = _semanticModel.GetSymbolInfo(lockStatement.Expression);
                         if (symbolInfo.Symbol != null)
                         {
-                            lockObjects.Add(symbolInfo.Symbol.OriginalDefinition);
+                            var parameterSymbol = symbolInfo.Symbol as IParameterSymbol;
+                            if (parameterSymbol != null && parameterSymbol.Ordinal == -1)
+                            {
+                                var containingType = parameterSymbol.ContainingType.OriginalDefinition;
+                                lockObjects.Add(containingType);
+                            }
+                            else
+                            {
+                                lockObjects.Add(symbolInfo.Symbol.OriginalDefinition);
+                            }
                         }
                     }
                     parent = parent.Parent;
@@ -172,7 +181,7 @@ namespace NO_LOCK.STAT
 
             private void UpdateVariableStats(ISymbol symbol, ISymbol lockObject, Location location)
             {
-                var variableEntry = _allVariables.GetOrAdd(symbol, _ => (new ConcurrentDictionary<ISymbol, VariableStats>(SymbolEqualityComparer.Default), 0, new VariableStats()));
+                var variableEntry = _allVariables[symbol];
 
                 if (lockObject == null)
                 {

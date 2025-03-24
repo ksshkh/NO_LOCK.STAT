@@ -98,6 +98,21 @@ namespace NO_LOCK.STAT
                                     compilationEndContext.ReportDiagnostic(diagnostic);
                                 }
                             }
+                            else if (curLockObject.Value.numOfUsage == 2 && noLockVars.numOfUsage == 1)
+                            {
+                                foreach (var curNullLoc in noLockVars.variableLocation)
+                                {
+                                    var diagnostic = Diagnostic.Create(
+                                        Rule,
+                                        curNullLoc,
+                                        curLockObject.Key,
+                                        variableName.Name,
+                                        curThreshold,
+                                        "no"
+                                    );
+                                    compilationEndContext.ReportDiagnostic(diagnostic);
+                                }
+                            }
                         }
                     }
                 });

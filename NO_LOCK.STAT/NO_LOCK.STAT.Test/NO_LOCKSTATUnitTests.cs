@@ -88,10 +88,10 @@ namespace NO_LOCK.STAT.Test
         }
 
         [TestMethod]
-        public async Task VarUsedOnlyOutsideLock()
+        public async Task VarUsedOneTimeOutsideLock()
         {
             var test = @"
-        class VarUsedOnlyOutsideLock
+        class VarUsedOneTimeOutsideLock
         {
             int _f;
 
@@ -99,9 +99,25 @@ namespace NO_LOCK.STAT.Test
             {
                 _f = 4; 
             }
+
+            void baz()
+            {
+                lock (this) 
+                    _f = 6; 
+            }
+
+            void bar()
+            {
+                lock (this) 
+                    _f = 6; 
+            }
         }";
 
-            await VerifyCS.VerifyAnalyzerAsync(test);
+            var expected = VerifyCS.Diagnostic("NO_LOCKSTAT")
+                .WithLocation(8, 17)
+                .WithArguments("VarUsedOneTimeOutsideLock", "_f", "66", "no");
+
+            await VerifyCS.VerifyAnalyzerAsync(test, expected);
         }
 
         [TestMethod]

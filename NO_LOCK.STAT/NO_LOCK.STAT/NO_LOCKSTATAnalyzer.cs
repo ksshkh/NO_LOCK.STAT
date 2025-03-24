@@ -136,8 +136,9 @@ namespace NO_LOCK.STAT
             {
                 var symbol = _semanticModel.GetSymbolInfo(node).Symbol;
                 bool isLockObject = node.Parent is LockStatementSyntax;
+                bool isInsideConstructor = IsInsideConstructor(node);
 
-                if (symbol == null || (symbol.Kind != SymbolKind.Field && symbol.Kind != SymbolKind.Property) || isLockObject)
+                if (symbol == null || (symbol.Kind != SymbolKind.Field && symbol.Kind != SymbolKind.Property) || isLockObject || isInsideConstructor)
                 {
                     base.VisitIdentifierName(node);
                     return;
@@ -162,6 +163,20 @@ namespace NO_LOCK.STAT
                 }
 
                 base.VisitIdentifierName(node);
+            }
+
+            private bool IsInsideConstructor(SyntaxNode node)
+            {
+                var parent = node.Parent;
+                while (parent != null)
+                {
+                    if (parent is ConstructorDeclarationSyntax)
+                    {
+                        return true;
+                    }
+                    parent = parent.Parent;
+                }
+                return false;
             }
 
             public List<ISymbol> GetLockObjects(SyntaxNode node)

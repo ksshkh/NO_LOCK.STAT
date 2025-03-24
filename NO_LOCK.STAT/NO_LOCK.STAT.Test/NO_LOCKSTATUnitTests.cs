@@ -52,7 +52,7 @@ namespace NO_LOCK.STAT.Test
             }";
 
             var expected = VerifyCS.Diagnostic("NO_LOCKSTAT")
-                .WithLocation(7, 21) 
+                .WithLocation(7, 21)
                 .WithArguments("IsAlwaysCalledInsideLock", "_f", "75", "no");
 
             await VerifyCS.VerifyAnalyzerAsync(test, expected);
@@ -84,7 +84,7 @@ namespace NO_LOCK.STAT.Test
 
         }";
 
-            await VerifyCS.VerifyAnalyzerAsync(test); 
+            await VerifyCS.VerifyAnalyzerAsync(test);
         }
 
         [TestMethod]
@@ -162,7 +162,7 @@ namespace NO_LOCK.STAT.Test
         }";
 
             var expected = VerifyCS.Diagnostic("NO_LOCKSTAT")
-                .WithLocation(10, 21) 
+                .WithLocation(10, 21)
                 .WithArguments("VarUsedInDifferentContexts", "_f", "75", "no");
 
             await VerifyCS.VerifyAnalyzerAsync(test, expected);
@@ -361,9 +361,9 @@ namespace NO_LOCK.STAT.Test
             }
         }";
 
-        var expected = VerifyCS.Diagnostic("NO_LOCKSTAT")
-            .WithSpan(33, 25, 33, 27)
-            .WithArguments("TestProject.LockObjects.LockObject1", "_f", "75", "no");
+            var expected = VerifyCS.Diagnostic("NO_LOCKSTAT")
+                .WithSpan(33, 25, 33, 27)
+                .WithArguments("TestProject.LockObjects.LockObject1", "_f", "75", "no");
 
             await VerifyCS.VerifyAnalyzerAsync(test, expected);
         }
@@ -745,6 +745,35 @@ namespace NO_LOCK.STAT.Test
                 .WithArguments("DoubleLocks.lockObject2", "_f", "75", "no");
 
             await VerifyCS.VerifyAnalyzerAsync(test, expected1, expected2, expected3, expected4);
+        }
+
+        [TestMethod]
+        public async Task DiagnosticInConstructor()
+        {
+            var test = @"
+        class DiagnosticInConstructor
+        {
+            object lockObject = new object();
+            int _f;
+
+            public DiagnosticInConstructor()
+            {
+                _f = 9;
+            }
+
+            void bar()
+            {
+                lock (lockObject)
+                {
+                    _f = 5; 
+                    _f = 5;
+                    _f = 5;
+                    _f = 5;
+                }
+            }
+        }";
+
+            await VerifyCS.VerifyAnalyzerAsync(test);
         }
     }
 }
